@@ -3,10 +3,10 @@ using Newtonsoft.Json;
 
 namespace Test_Taste_Console_Application.Domain.DataTransferObjects
 {
-    public class PlanetDto
-    {
-        public string Id { get; set; }
-        public float SemiMajorAxis { get; set; }
-        public ICollection<MoonDto> Moons { get; set; }
-    }
+
+public class PlanetDto
+{
+    public string Name { get; set; }
+    public List<MoonDto> Moons { get; set; } = new List<MoonDto>();
+}
 }

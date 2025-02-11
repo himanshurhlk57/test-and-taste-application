@@ -12,121 +12,50 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
 namespace Test_Taste_Console_Application
 {
-   using System;
-
-public class Moon
+class Program
 {
-    public string Name { get; set; }
-    public double Mass { get; set; }
-    public double Temperature { get; set; }
-
-    public Moon(string name, double mass, double temperature)
+    static async Task Main()
     {
-        Name = name;
-        Mass = mass;
-        Temperature = temperature;
-    }
+        string apiUrl = "https://api.le-systeme-solaire.net"; 
 
-    public override string ToString()
-    {
-        return $"{Name} - Mass: {Mass}kg, Temperature: {Temperature}°C";
-    }
-}
+        using HttpClient httpClient = new HttpClient();
+        IPlanetService planetService = new PlanetService(httpClient, apiUrl);
+        IMoonService moonService = new MoonService(httpClient, apiUrl);
+        PlanetProcessingService processingService = new PlanetProcessingService();
 
-public class Planet
-{
-    public string Name { get; set; }
-    public double Mass { get; set; }
-    public List<Moon> Moons { get; set; }
+        List<Planet> planets = await planetService.GetPlanetsAsync();
 
-    public Planet(string name, double mass)
-    {
-        Name = name;
-        Mass = mass;
-        Moons = new List<Moon>();  
-    }
-
-    public void AddMoon(Moon moon)
-    {
-        Moons.Add(moon);
-    }
-
-    public double? AverageTemperatureOfMoons()
-    {
-        if (Moons.Count == 0)
-        {
-            return null;  
-        }
-
-        double totalTemp = 0;
-        foreach (var moon in Moons)
-        {
-            totalTemp += moon.Temperature;
-        }
-
-        return totalTemp / Moons.Count;
-    }
-
-    public override string ToString()
-    {
-        return $"{Name} - Mass: {Mass}kg";
-    }
-}
-
-public class Program
-{
-    
-    public static async Task<List<Planet>> FetchPlanetsAsync(string apiUrl)
-    {
-        using (var client = new HttpClient())
-        {
-            var response = await client.GetStringAsync(apiUrl);
-            var planets = JsonConvert.DeserializeObject<List<Planet>>(response);
-            return planets;
-        }
-    }
-
-    public static List<(Planet, double?)> ListPlanetsWithMoonsAndAvgTemperature(List<Planet> planets)
-    {
-        var planetsWithMoons = new List<(Planet, double?)>();
-
+        // Fetch moon data for each planet
         foreach (var planet in planets)
         {
-            if (planet.Moons.Count > 0) 
-            {
-                double? avgTemp = planet.AverageTemperatureOfMoons();
-                planetsWithMoons.Add((planet, avgTemp));
-            }
+            planet.Moons = await moonService.GetMoonsForPlanetAsync(planet.Name);
         }
 
-        return planetsWithMoons;
-    }
+        List<PlanetTemperatureInfo> result = processingService.GetPlanetsWithMoonTemperatures(planets);
 
-    public static async Task Main(string[] args)
-    {
-        string apiUrl = "https://api.le-systeme-solaire.net";
-
-        try
+        if (result.Count == 0)
         {
-      
-            var planets = await FetchPlanetsAsync(apiUrl);
-
-            var planetsWithAvgTemp = ListPlanetsWithMoonsAndAvgTemperature(planets);
-
-            foreach (var entry in planetsWithAvgTemp)
-            {
-                var planet = entry.Item1;
-                var avgTemp = entry.Item2;
-                Console.WriteLine($"{planet.Name} has an average moon temperature of {avgTemp}°C");
-            }
+            Console.WriteLine("No planets with moons found.");
+            return;
         }
-        catch (Exception ex)
+
+        Console.WriteLine("Planets with at least one moon and their moons' average temperature:");
+        foreach (var planet in result)
         {
-            Console.WriteLine($"Error fetching data: {ex.Message}");
+            Console.WriteLine($"{planet.Name}: {planet.AverageMoonTemperature:F2}°C");
         }
     }
+}
+
+
 }
 
