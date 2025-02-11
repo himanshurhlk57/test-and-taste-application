@@ -19,34 +19,45 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 namespace Test_Taste_Console_Application
 {
+
 class Program
 {
-    static async Task Main()
+    static async Task Main(string[] args)
     {
-        string apiUrl = "https://api.le-systeme-solaire.net"; 
+        using var host = Host.CreateDefaultBuilder()
+            .ConfigureServices((context, services) =>
+            {
+                services.AddHttpClient<IPlanetService, PlanetService>(client =>
+                {
+                    client.BaseAddress = new Uri("https://api.le-systeme-solaire.net"); 
+                });
 
-        using HttpClient httpClient = new HttpClient();
-        IPlanetService planetService = new PlanetService(httpClient, apiUrl);
-        IMoonService moonService = new MoonService(httpClient, apiUrl);
-        PlanetProcessingService processingService = new PlanetProcessingService();
+                services.AddHttpClient<IMoonService, MoonService>(client =>
+                {
+                    client.BaseAddress = new Uri("https://api.le-systeme-solaire.net"); 
+                });
+
+                services.AddSingleton<PlanetProcessingService>();
+            })
+            .Build();
+
+        var planetService = host.Services.GetRequiredService<IPlanetService>();
+        var moonService = host.Services.GetRequiredService<IMoonService>();
+        var processingService = host.Services.GetRequiredService<PlanetProcessingService>();
 
         List<Planet> planets = await planetService.GetPlanetsAsync();
 
-        // Fetch moon data for each planet
         foreach (var planet in planets)
         {
             planet.Moons = await moonService.GetMoonsForPlanetAsync(planet.Name);
         }
 
+  
         List<PlanetTemperatureInfo> result = processingService.GetPlanetsWithMoonTemperatures(planets);
-
-        if (result.Count == 0)
-        {
-            Console.WriteLine("No planets with moons found.");
-            return;
-        }
 
         Console.WriteLine("Planets with at least one moon and their moons' average temperature:");
         foreach (var planet in result)
@@ -55,7 +66,6 @@ class Program
         }
     }
 }
-
 
 }
 
